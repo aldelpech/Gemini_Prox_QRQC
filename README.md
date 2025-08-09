@@ -32,6 +32,8 @@ L'application guide les utilisateurs à travers un dialogue avec l'IA Gemini pou
 * Une fois l'analyse terminée, cliquez sur "Générer le rapport PDF".
 * Si vous avez coché la case de consentement, le rapport sera stocké sur le serveur et pourra être utilisé anonymement pour des usages de formation.
 
+## visualisation
+On peut voir le résultat sur [le site Parcours Performance](https://parcours-performance.com/aide-a-la-resolution-de-probleme-type-qrqc/)
 ## Contribution
 
 Ce projet est sous licence GPL2. Les contributions sont les bienvenues.
