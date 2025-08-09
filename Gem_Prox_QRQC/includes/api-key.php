@@ -7,6 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // REMPLACEZ 'VOTRE_CLE_API_GEMINI_ICI' PAR VOTRE VRAIE CLÉ API
-define('GEMINI_API_KEY', 'AIzaSyAaNqWTKCoRgpyURKbHc1RJCDfNFvljvcE');
+define('GEMINI_API_KEY', 'VOTRE_CLE_API_GEMINI_ICI');
+
 
 ?>
