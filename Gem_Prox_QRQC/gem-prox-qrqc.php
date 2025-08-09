@@ -4,7 +4,7 @@
  * Plugin URI:  https://parcours-performance.com/
  * Description: Une application interactive pour la résolution de problèmes QRQC, intégrant l'IA Gemini.
  * Version:     1.0.0
- * Author:      Votre Nom
+ * Author:      Anne-Laure D
  * Author URI:  https://parcours-performance.com/
  * License:     GPL2
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -159,6 +159,11 @@ function gem_prox_qrqc_handle_proxy_request() {
         wp_send_json_error( 'Requête JSON invalide: ' . json_last_error_msg(), 400 );
     }
 
+    // ✅ Validation de la structure des données
+    if ( ! isset( $data['contents'] ) || ! is_array( $data['contents'] ) ) {
+        wp_send_json_error( 'Structure de données invalide: contents manquant', 400 );
+    }
+
     // Récupérer la clé API
     $api_key_file = 'api-key.php';
     $api_key_path = GEM_PROX_QRQC_PLUGIN_DIR . 'includes/' . $api_key_file;
@@ -173,13 +178,19 @@ function gem_prox_qrqc_handle_proxy_request() {
     }
 
     // Construire l'URL de l'API Gemini
-    $gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . GEMINI_API_KEY;
+    $gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=" . GEMINI_API_KEY;
+
+    // ✅ Préparer le payload pour l'API Gemini
+    $json_payload = json_encode( $data );
+    
+    // Log pour debug (à supprimer en production)
+    // error_log( 'Gemini API Request: ' . $json_payload );
 
     // Préparer les options de la requête cURL
     $ch = curl_init( $gemini_api_url );
     curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
     curl_setopt( $ch, CURLOPT_POST, true );
-    curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode( $data ) );
+    curl_setopt( $ch, CURLOPT_POSTFIELDS, $json_payload );
     curl_setopt( $ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
         'Accept: application/json'
@@ -191,6 +202,9 @@ function gem_prox_qrqc_handle_proxy_request() {
     $http_code = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
     $curl_error = curl_error( $ch );
     curl_close( $ch );
+
+    // Log de la réponse pour debug (à supprimer en production)
+    error_log( 'Gemini API Response (' . $http_code . '): ' . $response );
 
     // Gérer les erreurs cURL
     if ( $curl_error ) {
