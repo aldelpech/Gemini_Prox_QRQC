@@ -35,5 +35,7 @@ L'application guide les utilisateurs à travers un dialogue avec l'IA Gemini pou
 ## Contribution
 
 Ce projet est sous licence GPL2. Les contributions sont les bienvenues.
+L'application a été largement créée avec Gemini 2.5 Flash et améliorée avec Claude Sonnet 4. 
+
 
 ---
