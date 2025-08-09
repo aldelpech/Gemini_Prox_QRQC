@@ -23,11 +23,6 @@ if ( ! defined( 'GEM_PROX_QRQC_PLUGIN_DIR' ) ) {
 }
 
 /**
- * Charge le script PHP du proxy API.
- */
-require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/gemini-api-proxy.php';
-
-/**
  * Crée le dossier de stockage des rapports QRQC si il n'existe pas.
  */
 function gem_prox_qrqc_create_storage_folder() {
@@ -57,11 +52,10 @@ function gem_prox_qrqc_enqueue_scripts() {
 
     // Passer des variables PHP au JavaScript
     wp_localize_script( 'qrqc-app-js', 'geminiProxConfig', array(
-        'proxy_url' => plugin_dir_url( __FILE__ ) . 'includes/gemini-api-proxy.php',
+        'proxy_url' => admin_url('admin-ajax.php'),
         'config_json_url' => plugin_dir_url( __FILE__ ) . 'assets/json/qrqc_config.json',
         'template_json_url' => plugin_dir_url( __FILE__ ) . 'assets/json/qrqc_report_template.json',
         'nonce' => wp_create_nonce('gem-prox-qrqc-nonce'),
-        'store_report_url' => admin_url('admin-ajax.php'),
     ));
 }
 add_action( 'wp_enqueue_scripts', 'gem_prox_qrqc_enqueue_scripts' );
@@ -129,4 +123,76 @@ function gem_prox_qrqc_app_shortcode() {
 }
 add_shortcode( 'gemini_qrqc_app', 'gem_prox_qrqc_app_shortcode' );
 
-?>
+// Le contenu du proxy a été déplacé ici pour une meilleure organisation
+/**
+ * Gère les requêtes du proxy via l'API AJAX de WordPress.
+ *
+ * @return void
+ */
+function gem_prox_qrqc_handle_proxy_request() {
+    // Sécurité : Vérifier le nonce
+    if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( $_POST['nonce'] ), 'gem-prox-qrqc-nonce' ) ) {
+        wp_send_json_error( 'Nonce de sécurité invalide.', 403 );
+    }
+
+    // Sécurité : Vérifier le type d'action
+    $action = isset( $_POST['action'] ) ? sanitize_text_field( $_POST['action'] ) : '';
+    if ( $action !== 'gemini_proxy_request' ) {
+        wp_send_json_error( 'Action non autorisée.', 403 );
+    }
+
+    // Récupérer les données JSON qui ont été encodées en base64
+    $data_b64 = isset( $_POST['payload'] ) ? base64_decode( $_POST['payload'] ) : null;
+    $data     = json_decode( $data_b64, true );
+
+    if ( json_last_error() !== JSON_ERROR_NONE ) {
+        wp_send_json_error( 'Requête JSON invalide.', 400 );
+    }
+
+    // Récupérer la clé API depuis un fichier distinct
+    $api_key_file = 'api-key.php';
+    $api_key_path = GEM_PROX_QRQC_PLUGIN_DIR . 'includes/' . $api_key_file;
+
+    if ( ! file_exists( $api_key_path ) || ! is_readable( $api_key_path ) ) {
+        wp_send_json_error( array( 'error' => 'Le fichier de clé API est manquant ou non lisible.' ), 500 );
+    }
+
+    require_once( $api_key_path );
+    if ( empty( GEMINI_API_KEY ) ) {
+        wp_send_json_error( array( 'error' => 'La clé API est vide.' ), 500 );
+    }
+
+    // Construire l'URL de l'API Gemini
+    $gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . GEMINI_API_KEY;
+
+    // Préparer les options de la requête cURL
+    $ch = curl_init( $gemini_api_url );
+    curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+    curl_setopt( $ch, CURLOPT_POST, true );
+    curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode( $data ) );
+    curl_setopt( $ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Accept: application/json'
+    ]);
+
+    // Exécuter la requête cURL
+    $response = curl_exec( $ch );
+    $http_code = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $curl_error = curl_error( $ch );
+    curl_close( $ch );
+
+    // Gérer les erreurs cURL
+    if ( $curl_error ) {
+        wp_send_json_error( array( 'error' => 'Erreur cURL: ' . $curl_error ), 500 );
+    }
+
+    // Renvoyer la réponse de l'API Gemini au client
+    $response_data = json_decode( $response, true );
+    if ( $response_data ) {
+        wp_send_json_success( $response_data );
+    } else {
+        wp_send_json_error( array( 'error' => 'Réponse API invalide.' ), $http_code );
+    }
+}
+add_action( 'wp_ajax_gemini_proxy_request', 'gem_prox_qrqc_handle_proxy_request' );
+add_action( 'wp_ajax_nopriv_gemini_proxy_request', 'gem_prox_qrqc_handle_proxy_request' );

@@ -1,119 +1,69 @@
 <?php
 // includes/gemini-api-proxy.php
 
-if ( ! defined( 'ABSPATH' ) && ! defined( 'DOING_AJAX' ) ) {
-    if ( $_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'OPTIONS' ) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Accès direct non autorisé.']);
-        exit;
-    }
-}
-
-// --- SÉCURITÉ : Récupérer la clé API depuis un fichier distinct ---
-$api_key_file = 'api-key.php';
-$api_key_path = GEM_PROX_QRQC_PLUGIN_DIR . 'includes/' . $api_key_file;
-
-if (!file_exists($api_key_path) || !is_readable($api_key_path)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Le fichier de clé API est manquant ou non lisible.']);
-    exit;
-}
-
-require_once($api_key_path);
-if (empty(GEMINI_API_KEY)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'La clé API est vide.']);
-    exit;
-}
-
-// --- Sécurité CORS (Cross-Origin Resource Sharing) ---
-$allowed_origin = get_site_url();
-if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === $allowed_origin) {
-    header("Access-Control-Allow-Origin: " . $allowed_origin);
-    header("Access-Control-Allow-Methods: POST, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type, X-WP-Nonce");
-} else {
-    http_response_code(403);
-    echo json_encode(['error' => 'Accès non autorisé.']);
-    exit;
-}
-
-// Gérer les requêtes OPTIONS (pré-vol CORS)
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-// S'assurer que la requête est une méthode POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Méthode non autorisée. Seules les requêtes POST sont acceptées.']);
-    exit;
-}
-
-// Récupérer le corps de la requête JSON
-$input = file_get_contents('php://input');
-$data = json_decode($input, true);
-
-if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Requête JSON invalide.']);
-    exit;
-}
-
-// Si la requête contient une demande de stockage de rapport
-if (isset($data['action']) && $data['action'] === 'store_report') {
-    // Vérifier le nonce de sécurité
-    if (!isset($data['nonce']) || !wp_verify_nonce($data['nonce'], 'gem-prox-qrqc-nonce')) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Nonce de sécurité invalide.']);
-        exit;
+// Le script ne s'exécute que si c'est une requête AJAX
+function gem_prox_qrqc_handle_proxy_request() {
+    // Sécurité : Vérifier le nonce
+    if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( $_POST['nonce'] ), 'gem-prox-qrqc-nonce' ) ) {
+        wp_send_json_error( 'Nonce de sécurité invalide.', 403 );
     }
 
-    $report_content = sanitize_text_field($data['report_content']);
-    $file_name = sanitize_file_name($data['file_name']);
+    // Sécurité : Vérifier le type d'action
+    $action = isset( $_POST['action'] ) ? sanitize_text_field( $_POST['action'] ) : '';
+    if ( $action !== 'gemini_proxy_request' ) {
+        wp_send_json_error( 'Action non autorisée.', 403 );
+    }
 
-    $upload_dir = wp_upload_dir();
-    $storage_path = $upload_dir['basedir'] . '/gem_qrqc_reports/' . $file_name;
+    // Récupérer les données JSON qui ont été encodées en base64
+    $data_b64 = isset( $_POST['payload'] ) ? base64_decode( $_POST['payload'] ) : null;
+    $data     = json_decode( $data_b64, true );
 
-    // Sauvegarde du fichier
-    if (file_put_contents($storage_path, $report_content) !== false) {
-        http_response_code(200);
-        echo json_encode(['success' => 'Rapport stocké avec succès.']);
+    if ( json_last_error() !== JSON_ERROR_NONE ) {
+        wp_send_json_error( 'Requête JSON invalide.', 400 );
+    }
+
+    // Récupérer la clé API depuis un fichier distinct
+    $api_key_file = 'api-key.php';
+    $api_key_path = GEM_PROX_QRQC_PLUGIN_DIR . 'includes/' . $api_key_file;
+
+    if ( ! file_exists( $api_key_path ) || ! is_readable( $api_key_path ) ) {
+        wp_send_json_error( array( 'error' => 'Le fichier de clé API est manquant ou non lisible.' ), 500 );
+    }
+
+    require_once( $api_key_path );
+    if ( empty( GEMINI_API_KEY ) ) {
+        wp_send_json_error( array( 'error' => 'La clé API est vide.' ), 500 );
+    }
+
+    // Construire l'URL de l'API Gemini
+    $gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . GEMINI_API_KEY;
+
+    // Préparer les options de la requête cURL
+    $ch = curl_init( $gemini_api_url );
+    curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+    curl_setopt( $ch, CURLOPT_POST, true );
+    curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode( $data ) );
+    curl_setopt( $ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Accept: application/json'
+    ]);
+
+    // Exécuter la requête cURL
+    $response = curl_exec( $ch );
+    $http_code = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $curl_error = curl_error( $ch );
+    curl_close( $ch );
+
+    // Gérer les erreurs cURL
+    if ( $curl_error ) {
+        wp_send_json_error( array( 'error' => 'Erreur cURL: ' . $curl_error ), 500 );
+    }
+
+    // Renvoyer la réponse de l'API Gemini au client
+    $response_data = json_decode( $response, true );
+    if ( $response_data ) {
+        wp_send_json_success( $response_data );
     } else {
-        http_response_code(500);
-        echo json_encode(['error' => 'Erreur lors de la sauvegarde du rapport.']);
+        wp_send_json_error( array( 'error' => 'Réponse API invalide.' ), $http_code );
     }
-    exit;
 }
-
-
-// Construire l'URL de l'API Gemini
-$gemini_api_url = "[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=)" . GEMINI_API_KEY;
-
-// Préparer les options de la requête cURL
-$ch = curl_init($gemini_api_url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Content-Type: application/json',
-    'Accept: application/json'
-]);
-
-// Exécuter la requête cURL
-$response = curl_exec($ch);
-$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$curl_error = curl_error($ch);
-curl_close($ch);
-
-// Gérer les erreurs cURL
-if ($curl_error) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Erreur cURL: ' . $curl_error]);
-    exit;
-}
-
-http_response_code($http_code);
-echo $response;
-?>

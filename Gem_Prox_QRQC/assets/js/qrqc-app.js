@@ -1,15 +1,12 @@
-// Fichier : assets/js/qrqc-app.js
 let chatHistory = [];
 let currentProblemDescription = "";
 let awaitingReportGeneration = false;
 let fullChatTranscript = [];
 let promptsConfig;
 let reportTemplate;
-
 const problemInputSection = document.getElementById('problem-input-section');
 const analysisSection = document.getElementById('analysis-section');
 const reportSection = document.getElementById('report-section');
-
 const problemDescriptionInput = document.getElementById('problem-description');
 const startAnalysisBtn = document.getElementById('start-analysis-btn');
 const consentStoreReport = document.getElementById('consent-store-report');
@@ -48,8 +45,9 @@ async function sendMessageToGemini(prompt, isReportGeneration = false) {
     loadingIndicator.classList.remove('hidden');
     sendResponseBtn.disabled = true;
     userResponseInput.disabled = true;
+
     try {
-        const payload = {
+        let payload = {
             contents: chatHistory,
             generationConfig: isReportGeneration ? {
                 responseMimeType: "application/json",
@@ -57,19 +55,26 @@ async function sendMessageToGemini(prompt, isReportGeneration = false) {
             } : {}
         };
         payload.contents.push({ role: "user", parts: [{ text: prompt }] });
+        
+        const formData = new URLSearchParams();
+        formData.append('action', 'gemini_proxy_request');
+        formData.append('nonce', geminiProxConfig.nonce);
+        formData.append('payload', btoa(JSON.stringify(payload)));
+
         const response = await fetch(geminiProxConfig.proxy_url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-WP-Nonce': geminiProxConfig.nonce
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: JSON.stringify(payload)
+            body: formData
         });
+
         const result = await response.json();
-        if (result.candidates && result.candidates.length > 0 &&
-            result.candidates[0].content && result.candidates[0].content.parts &&
-            result.candidates[0].content.parts.length > 0) {
-            const text = result.candidates[0].content.parts[0].text;
+
+        if (result.success && result.data.candidates && result.data.candidates.length > 0 &&
+            result.data.candidates[0].content && result.data.candidates[0].content.parts &&
+            result.data.candidates[0].content.parts.length > 0) {
+            const text = result.data.candidates[0].content.parts[0].text;
             return text;
         } else {
             console.error("Unexpected API response structure:", result);
@@ -316,7 +321,7 @@ async function generatePdfReport() {
                     report_content: base64Pdf,
                     file_name: fileName
                 };
-                fetch(geminiProxConfig.store_report_url, {
+                fetch(geminiProxConfig.proxy_url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
