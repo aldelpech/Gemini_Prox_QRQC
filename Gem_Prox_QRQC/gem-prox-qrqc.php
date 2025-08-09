@@ -143,23 +143,28 @@ function gem_prox_qrqc_handle_proxy_request() {
 
     // Récupérer les données JSON qui ont été encodées en base64
     $data_b64 = isset( $_POST['payload'] ) ? base64_decode( $_POST['payload'] ) : null;
-    $data     = json_decode( $data_b64, true );
+    
+    if ( ! $data_b64 ) {
+        wp_send_json_error( 'Payload manquant.', 400 );
+    }
+    
+    $data = json_decode( $data_b64, true );
 
     if ( json_last_error() !== JSON_ERROR_NONE ) {
-        wp_send_json_error( 'Requête JSON invalide.', 400 );
+        wp_send_json_error( 'Requête JSON invalide: ' . json_last_error_msg(), 400 );
     }
 
-    // Récupérer la clé API depuis un fichier distinct
+    // Récupérer la clé API
     $api_key_file = 'api-key.php';
     $api_key_path = GEM_PROX_QRQC_PLUGIN_DIR . 'includes/' . $api_key_file;
 
     if ( ! file_exists( $api_key_path ) || ! is_readable( $api_key_path ) ) {
-        wp_send_json_error( array( 'error' => 'Le fichier de clé API est manquant ou non lisible.' ), 500 );
+        wp_send_json_error( 'Le fichier de clé API est manquant ou non lisible.', 500 );
     }
 
     require_once( $api_key_path );
-    if ( empty( GEMINI_API_KEY ) ) {
-        wp_send_json_error( array( 'error' => 'La clé API est vide.' ), 500 );
+    if ( empty( GEMINI_API_KEY ) || GEMINI_API_KEY === 'VOTRE_CLE_API_GEMINI_ICI' ) {
+        wp_send_json_error( 'La clé API n\'est pas configurée.', 500 );
     }
 
     // Construire l'URL de l'API Gemini
@@ -174,6 +179,7 @@ function gem_prox_qrqc_handle_proxy_request() {
         'Content-Type: application/json',
         'Accept: application/json'
     ]);
+    curl_setopt( $ch, CURLOPT_TIMEOUT, 30 );
 
     // Exécuter la requête cURL
     $response = curl_exec( $ch );
@@ -183,16 +189,64 @@ function gem_prox_qrqc_handle_proxy_request() {
 
     // Gérer les erreurs cURL
     if ( $curl_error ) {
-        wp_send_json_error( array( 'error' => 'Erreur cURL: ' . $curl_error ), 500 );
+        wp_send_json_error( 'Erreur cURL: ' . $curl_error, 500 );
     }
 
-    // Renvoyer la réponse de l'API Gemini au client
-    $response_data = json_decode( $response, true );
-    if ( $response_data ) {
-        wp_send_json_success( $response_data );
-    } else {
-        wp_send_json_error( array( 'error' => 'Réponse API invalide.' ), $http_code );
+    // Vérifier le code de réponse HTTP
+    if ( $http_code !== 200 ) {
+        wp_send_json_error( 'Erreur API Gemini (HTTP ' . $http_code . '): ' . $response, $http_code );
     }
+
+    // Décoder la réponse
+    $response_data = json_decode( $response, true );
+    if ( json_last_error() !== JSON_ERROR_NONE ) {
+        wp_send_json_error( 'Réponse API invalide: ' . json_last_error_msg(), 500 );
+    }
+
+    // Vérifier la structure de la réponse
+    if ( ! isset( $response_data['candidates'] ) ) {
+        wp_send_json_error( 'Structure de réponse inattendue: ' . json_encode( $response_data ), 500 );
+    }
+
+    wp_send_json_success( $response_data );
 }
 add_action( 'wp_ajax_gemini_proxy_request', 'gem_prox_qrqc_handle_proxy_request' );
 add_action( 'wp_ajax_nopriv_gemini_proxy_request', 'gem_prox_qrqc_handle_proxy_request' );
+
+/**
+ * Gère le stockage des rapports PDF.
+ */
+function gem_prox_qrqc_handle_store_report() {
+    // Vérification de sécurité
+    if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( $_POST['nonce'] ), 'gem-prox-qrqc-nonce' ) ) {
+        wp_send_json_error( 'Nonce de sécurité invalide.', 403 );
+    }
+
+    // Vérifier que les données sont présentes
+    if ( ! isset( $_POST['report_content'] ) || ! isset( $_POST['file_name'] ) ) {
+        wp_send_json_error( 'Données manquantes pour le stockage.', 400 );
+    }
+
+    $report_content = sanitize_text_field( $_POST['report_content'] );
+    $file_name = sanitize_file_name( $_POST['file_name'] );
+
+    // Créer le dossier de stockage
+    $upload_dir = wp_upload_dir();
+    $storage_path = $upload_dir['basedir'] . '/gem_qrqc_reports';
+    
+    if ( ! file_exists( $storage_path ) ) {
+        wp_mkdir_p( $storage_path );
+    }
+
+    // Sauvegarder le fichier
+    $file_path = $storage_path . '/' . $file_name;
+    $pdf_data = base64_decode( $report_content );
+    
+    if ( file_put_contents( $file_path, $pdf_data ) ) {
+        wp_send_json_success( array( 'message' => 'Rapport sauvegardé avec succès.' ) );
+    } else {
+        wp_send_json_error( 'Erreur lors de la sauvegarde du rapport.', 500 );
+    }
+}
+add_action( 'wp_ajax_store_report', 'gem_prox_qrqc_handle_store_report' );
+add_action( 'wp_ajax_nopriv_store_report', 'gem_prox_qrqc_handle_store_report' );
