@@ -47,19 +47,28 @@ async function sendMessageToGemini(prompt, isReportGeneration = false) {
     userResponseInput.disabled = true;
 
     try {
+        // ✅ Structure corrigée pour l'API Gemini 2.0
         let payload = {
-            contents: chatHistory,
-            generationConfig: isReportGeneration ? {
+            contents: [...chatHistory]
+        };
+        
+        // Ajouter le message utilisateur
+        payload.contents.push({ 
+            role: "user", 
+            parts: [{ text: prompt }] 
+        });
+
+        // Configuration pour génération de rapport JSON
+        if (isReportGeneration) {
+            payload.generationConfig = {
                 responseMimeType: "application/json",
                 responseSchema: promptsConfig.schema
-            } : {}
-        };
-        payload.contents.push({ role: "user", parts: [{ text: prompt }] });
+            };
+        }
         
         const formData = new URLSearchParams();
         formData.append('action', 'gemini_proxy_request');
         formData.append('nonce', geminiProxConfig.nonce);
-        // ✅ Envoi direct du JSON sans encodage base64
         formData.append('payload_json', JSON.stringify(payload));
 
         const response = await fetch(geminiProxConfig.proxy_url, {
