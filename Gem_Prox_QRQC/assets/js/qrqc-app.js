@@ -59,7 +59,8 @@ async function sendMessageToGemini(prompt, isReportGeneration = false) {
         const formData = new URLSearchParams();
         formData.append('action', 'gemini_proxy_request');
         formData.append('nonce', geminiProxConfig.nonce);
-        formData.append('payload', btoa(JSON.stringify(payload)));
+        // ✅ Envoi direct du JSON sans encodage base64
+        formData.append('payload_json', JSON.stringify(payload));
 
         const response = await fetch(geminiProxConfig.proxy_url, {
             method: 'POST',
