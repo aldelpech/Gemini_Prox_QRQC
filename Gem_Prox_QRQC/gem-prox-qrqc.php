@@ -141,16 +141,21 @@ function gem_prox_qrqc_handle_proxy_request() {
         wp_send_json_error( 'Action non autorisée.', 403 );
     }
 
-    // Récupérer les données JSON qui ont été encodées en base64
-    $data_b64 = isset( $_POST['payload'] ) ? base64_decode( $_POST['payload'] ) : null;
+    // ✅ Récupérer les données JSON directement ou via base64 (compatibilité)
+    $data = null;
     
-    if ( ! $data_b64 ) {
-        wp_send_json_error( 'Payload manquant.', 400 );
+    if ( isset( $_POST['payload_json'] ) ) {
+        // Nouveau format : JSON direct
+        $data = json_decode( stripslashes( $_POST['payload_json'] ), true );
+    } elseif ( isset( $_POST['payload'] ) ) {
+        // Ancien format : base64 (pour compatibilité)
+        $data_b64 = base64_decode( $_POST['payload'] );
+        if ( $data_b64 ) {
+            $data = json_decode( $data_b64, true );
+        }
     }
-    
-    $data = json_decode( $data_b64, true );
 
-    if ( json_last_error() !== JSON_ERROR_NONE ) {
+    if ( ! $data || json_last_error() !== JSON_ERROR_NONE ) {
         wp_send_json_error( 'Requête JSON invalide: ' . json_last_error_msg(), 400 );
     }
 
