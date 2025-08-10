@@ -8,12 +8,12 @@ L'application guide les utilisateurs à travers un dialogue avec l'IA Gemini pou
 
 ## Fonctionnalités
 
-* **Dialogue guidé :** L'IA pose des questions séquentielles basées sur les méthodes QRQC, QQOQPC, QCDSM et 5 Pourquoi.
-* **Génération de rapport PDF :** Un rapport d'analyse structuré est généré et téléchargeable au format PDF.
-* **Clé API sécurisée :** La clé API est stockée sur le serveur via un fichier PHP, jamais exposée côté client.
-* **Stockage des rapports :** L'utilisateur peut consentir au stockage anonyme du rapport sur le site, pour servir de base d'apprentissage future.
-* **Avertissement de confidentialité :** Une mise en garde est affichée pour rappeler de ne pas saisir de données sensibles.
-* **Analyse flexible :** L'IA peut proposer des hypothèses de causes et d'actions pour aider l'utilisateur à affiner son diagnostic.
+-   **Dialogue guidé :** L'IA pose des questions séquentielles basées sur les méthodes QRQC, QQOQPC, QCDSM et 5 Pourquoi.
+-   **Génération de rapport PDF :** Un rapport d'analyse structuré est généré et téléchargeable au format PDF.
+-   **Clé API sécurisée :** La clé API est stockée sur le serveur via un fichier PHP, jamais exposée côté client.
+-   **Stockage des rapports :** L'utilisateur peut consentir au stockage anonyme du rapport sur le site, pour servir de base d'apprentissage future.
+-   **Avertissement de confidentialité :** Une mise en garde est affichée pour rappeler de ne pas saisir de données sensibles.
+-   **Analyse flexible :** L'IA peut proposer des hypothèses de causes et d'actions pour aider l'utilisateur à affiner son diagnostic.
 
 ## Installation
 
@@ -26,14 +26,13 @@ L'application guide les utilisateurs à travers un dialogue avec l'IA Gemini pou
 
 ## Utilisation
 
-* Sur la page de l'application, décrivez votre problème dans la zone de texte.
-* L'IA vous posera des questions pour vous aider à analyser le problème.
-* Répondez aux questions pour progresser dans l'analyse.
-* Une fois l'analyse terminée, cliquez sur "Générer le rapport PDF".
-* Si vous avez coché la case de consentement, le rapport sera stocké sur le serveur et pourra être utilisé anonymement pour des usages de formation.
+-   Sur la page de l'application, décrivez votre problème dans la zone de texte.
+-   L'IA vous posera des questions pour vous aider à analyser le problème.
+-   Répondez aux questions pour progresser dans l'analyse.
+-   Une fois l'analyse terminée, cliquez sur "Générer le rapport PDF".
+-   Si vous avez coché la case de consentement, le rapport sera stocké sur le serveur et pourra être utilisé anonymement pour des usages de formation.
 
 ## Contribution
 
 Ce projet est sous licence GPL2. Les contributions sont les bienvenues.
-
----
+Cette extension a été co-créé avec Gemini (2.5 flash) et Claude (Sonnet 4).
