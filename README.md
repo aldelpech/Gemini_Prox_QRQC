@@ -8,12 +8,12 @@ L'application guide les utilisateurs à travers un dialogue avec l'IA Gemini pou
 
 ## Fonctionnalités
 
-* **Dialogue guidé :** L'IA pose des questions séquentielles basées sur les méthodes QRQC, QQOQPC, QCDSM et 5 Pourquoi.
-* **Génération de rapport PDF :** Un rapport d'analyse structuré est généré et téléchargeable au format PDF.
-* **Clé API sécurisée :** La clé API est stockée sur le serveur via un fichier PHP, jamais exposée côté client.
-* **Stockage des rapports :** L'utilisateur peut consentir au stockage anonyme du rapport sur le site, pour servir de base d'apprentissage future.
-* **Avertissement de confidentialité :** Une mise en garde est affichée pour rappeler de ne pas saisir de données sensibles.
-* **Analyse flexible :** L'IA peut proposer des hypothèses de causes et d'actions pour aider l'utilisateur à affiner son diagnostic.
+-   **Dialogue guidé :** L'IA pose des questions séquentielles basées sur les méthodes QRQC, QQOQPC, QCDSM et 5 Pourquoi.
+-   **Génération de rapport PDF :** Un rapport d'analyse structuré est généré et téléchargeable au format PDF.
+-   **Clé API sécurisée :** La clé API est stockée sur le serveur via un fichier PHP, jamais exposée côté client.
+-   **Stockage des rapports :** L'utilisateur peut consentir au stockage anonyme du rapport sur le site, pour servir de base d'apprentissage future.
+-   **Avertissement de confidentialité :** Une mise en garde est affichée pour rappeler de ne pas saisir de données sensibles.
+-   **Analyse flexible :** L'IA peut proposer des hypothèses de causes et d'actions pour aider l'utilisateur à affiner son diagnostic.
 
 ## Installation
 
@@ -26,17 +26,14 @@ L'application guide les utilisateurs à travers un dialogue avec l'IA Gemini pou
 
 ## Utilisation
 
-* Sur la page de l'application, décrivez votre problème dans la zone de texte.
-* L'IA vous posera des questions pour vous aider à analyser le problème.
-* Répondez aux questions pour progresser dans l'analyse.
-* Une fois l'analyse terminée, cliquez sur "Générer le rapport PDF".
-* Si vous avez coché la case de consentement, le rapport sera stocké sur le serveur et pourra être utilisé anonymement pour des usages de formation.
+-   Sur la page de l'application, décrivez votre problème dans la zone de texte.
+-   L'IA vous posera des questions pour vous aider à analyser le problème.
+-   Répondez aux questions pour progresser dans l'analyse.
+-	si vous avez besoin d'arrêter temporairement l'analyse, vous pouvez sauvegarder la discussion. Lorsque vous revenez, ouvrez le fichier sauvegardé, copier l'intégralité de ce qui y figure et le coller dans la case de description du problème. Lorsque vous cliquez sur "démarrer l'analyse QRQC" l'IA reconnaîtra que c'est une sauvegarde et reprendra l'analyse là où vous en étiez la dernière fois. 
+-   Une fois l'analyse terminée, cliquez sur "Générer le rapport PDF".
+-   Si vous avez coché la case de consentement, le rapport sera stocké sur le serveur et pourra être utilisé anonymement pour des usages de formation et pour améliorer cette application.
 
-## visualisation
-On peut voir le résultat sur [le site Parcours Performance](https://parcours-performance.com/aide-a-la-resolution-de-probleme-type-qrqc/)
 ## Contribution
 
 Ce projet est sous licence GPL2. Les contributions sont les bienvenues.
-
---- 
-Extension créée par Gemini 2.5 Flash
+Cette extension a été co-créé avec Gemini (2.5 flash) et Claude (Sonnet 4).
