@@ -1,4 +1,4 @@
-/* Fichier : assets/css/styles.css - Version améliorée */
+/* Fichier : assets/css/styles.css - Version améliorée UX */
 
 /* Variables CSS pour la palette de couleurs */
 :root {
@@ -75,6 +75,9 @@ body {
     border-radius: 8px;
     font-size: 16px;
     transition: all 0.3s ease;
+    resize: none;
+    overflow-y: hidden;
+    min-height: 50px;
 }
 
 #user-response-input:focus {
@@ -121,15 +124,29 @@ body {
     }
 }
 
+/* AMÉLIORATION UX : Messages utilisateur avec bordure au lieu de fond rouge */
 .user-message {
-    background: linear-gradient(135deg, var(--color-primary), #b8233a);
-    color: var(--color-light);
+    background: var(--color-light);
+    border: 2px solid var(--color-primary);
+    color: var(--color-dark);
     margin-left: auto;
     margin-right: 0;
     flex-direction: row-reverse;
     max-width: 100%;
     width: 100%;
     text-align: left;
+    position: relative;
+}
+
+.user-message::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--color-primary);
+    border-radius: 2px 0 0 2px;
 }
 
 .ai-message {
@@ -155,7 +172,7 @@ body {
 }
 
 .user-avatar {
-    background: linear-gradient(135deg, var(--color-black), var(--color-dark));
+    background: linear-gradient(135deg, var(--color-primary), #b8233a);
     color: var(--color-light);
 }
 
@@ -170,7 +187,7 @@ body {
     word-wrap: break-word;
 }
 
-/* Boutons améliorés */
+/* AMÉLIORATION UX : Boutons avec largeur adaptée */
 .btn-primary {
     background: linear-gradient(135deg, var(--color-primary), #b8233a);
     color: var(--color-light);
@@ -181,7 +198,11 @@ body {
     font-size: 16px;
     cursor: pointer;
     transition: all 0.3s ease;
-    width: 100%;
+    width: auto;
+    min-width: 200px;
+    max-width: 300px;
+    margin: 0 auto;
+    display: block;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -199,12 +220,35 @@ body {
     font-size: 16px;
     cursor: pointer;
     transition: all 0.3s ease;
-    width: 100%;
+    width: auto;
+    min-width: 200px;
+    max-width: 300px;
 }
 
 .btn-secondary:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px var(--color-secondary-alpha);
+}
+
+.btn-secondary-outline {
+    background: var(--color-light);
+    color: var(--color-secondary);
+    border: 2px solid var(--color-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: auto;
+    min-width: 180px;
+    max-width: 250px;
+    position: relative;
+}
+
+.btn-secondary-outline:hover:not(:disabled) {
+    background: var(--color-secondary-alpha);
+    box-shadow: 0 0 0 3px var(--color-secondary-alpha);
 }
 
 .btn-send {
@@ -217,6 +261,7 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     white-space: nowrap;
+    width: auto;
 }
 
 .btn-send:hover:not(:disabled) {
@@ -232,6 +277,16 @@ body {
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+}
+
+/* NOUVEAU : Container pour organiser les boutons */
+.button-group {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
 }
 
 /* Indicateur de chargement amélioré */
@@ -324,7 +379,7 @@ body {
     margin-top: 1rem;
 }
 
-.response-area input {
+.response-area textarea {
     flex: 1;
 }
 
@@ -349,6 +404,72 @@ body {
 .consent-container label {
     font-size: 14px;
     color: var(--color-dark);
+    line-height: 1.5;
+}
+
+/* NOUVEAU : Tooltip pour les boutons */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 300px;
+    background-color: var(--color-black);
+    color: var(--color-light);
+    text-align: center;
+    border-radius: 8px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -150px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.tooltip .tooltiptext::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--color-black) transparent transparent transparent;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* NOUVEAU : Message de succès pour la sauvegarde */
+.success-message {
+    background: rgba(35, 158, 154, 0.1);
+    border: 2px solid var(--color-secondary);
+    color: var(--color-dark);
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    font-weight: 500;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.success-message h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--color-secondary);
+    font-size: 16px;
+}
+
+.success-message p {
+    margin: 0.5rem 0;
+    font-size: 14px;
     line-height: 1.5;
 }
 
@@ -391,9 +512,20 @@ h1 {
         gap: 0.75rem;
     }
     
-    .response-area input,
+    .response-area textarea,
     .response-area button {
         width: 100%;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .button-group .btn-secondary-outline,
+    .button-group .btn-secondary {
+        width: 100%;
+        max-width: none;
     }
     
     #chat-log {
@@ -408,6 +540,11 @@ h1 {
         width: 35px;
         height: 35px;
         font-size: 16px;
+    }
+    
+    .tooltip .tooltiptext {
+        width: 250px;
+        margin-left: -125px;
     }
 }
 
