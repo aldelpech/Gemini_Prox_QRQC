@@ -3,7 +3,7 @@
  * Plugin Name: Gemini QRQC Problem Solver
  * Plugin URI:  https://parcours-performance.com/
  * Description: Une application interactive pour la résolution de problèmes QRQC, intégrant l'IA Gemini.
- * Version:     1.1.2
+ * Version:     1.2.2
  * Author:      Anne-Laure D
  * Author URI:  https://parcours-performance.com/
  * License:     GPL2
@@ -23,23 +23,163 @@ if ( ! defined( 'GEM_PROX_QRQC_PLUGIN_DIR' ) ) {
 }
 
 /**
+ * Vérifie si l'application est en mode maintenance
+ */
+function gem_prox_qrqc_is_maintenance_mode() {
+    $maintenance_mode = get_option('gem_prox_qrqc_maintenance_mode', false);
+    $maintenance_until = get_option('gem_prox_qrqc_maintenance_until', 0);
+    
+    // Si pas en mode maintenance
+    if (!$maintenance_mode) {
+        return false;
+    }
+    
+    // Si la maintenance est expirée, la désactiver automatiquement
+    if ($maintenance_until && time() > $maintenance_until) {
+        update_option('gem_prox_qrqc_maintenance_mode', false);
+        delete_option('gem_prox_qrqc_maintenance_until');
+        gem_prox_qrqc_log_error('maintenance', 'Mode maintenance désactivé automatiquement', array(
+            'maintenance_until' => date('Y-m-d H:i:s', $maintenance_until),
+            'current_time' => date('Y-m-d H:i:s')
+        ));
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Active le mode maintenance automatiquement
+ */
+function gem_prox_qrqc_activate_maintenance_mode($reason = 'quota_exceeded') {
+    $now = time();
+    
+    // Calculer 1h du matin le lendemain
+    $tomorrow_1am = strtotime('tomorrow 01:00:00');
+    
+    // Si on est déjà après 1h du matin aujourd'hui, programmer pour demain
+    if (date('H') >= 1) {
+        $maintenance_until = $tomorrow_1am;
+    } else {
+        // Si on est avant 1h du matin, programmer pour 1h du matin aujourd'hui
+        $maintenance_until = strtotime('today 01:00:00');
+    }
+    
+    update_option('gem_prox_qrqc_maintenance_mode', true);
+    update_option('gem_prox_qrqc_maintenance_until', $maintenance_until);
+    update_option('gem_prox_qrqc_maintenance_reason', $reason);
+    
+    gem_prox_qrqc_log_error('maintenance', 'Mode maintenance activé automatiquement', array(
+        'reason' => $reason,
+        'maintenance_until' => date('Y-m-d H:i:s', $maintenance_until),
+        'activated_at' => date('Y-m-d H:i:s')
+    ));
+    
+    // Envoyer un email à l'admin
+    gem_prox_qrqc_send_maintenance_email($reason, $maintenance_until);
+}
+
+/**
+ * Envoie un email d'information sur le mode maintenance
+ */
+function gem_prox_qrqc_send_maintenance_email($reason, $until_timestamp) {
+    $admin_email = get_option('gem_prox_qrqc_admin_email', get_option('admin_email'));
+    
+    if (empty($admin_email)) {
+        return;
+    }
+    
+    $site_name = get_bloginfo('name');
+    $site_url = get_bloginfo('url');
+    $until_date = date('d/m/Y à H:i', $until_timestamp);
+    
+    $subject = "[{$site_name}] Application QRQC en maintenance automatique";
+    
+    $message = "L'application QRQC est passée en mode maintenance automatique :\n\n";
+    $message .= "Site : {$site_url}\n";
+    $message .= "Raison : ";
+    
+    switch ($reason) {
+        case 'quota_exceeded':
+            $message .= "Quota API Gemini dépassé (erreur 429)\n";
+            break;
+        case 'manual':
+            $message .= "Activation manuelle par l'administrateur\n";
+            break;
+        default:
+            $message .= "Raison technique : {$reason}\n";
+            break;
+    }
+    
+    $message .= "Fin prévue : {$until_date}\n\n";
+    $message .= "L'application se remettra automatiquement en service à cette heure.\n";
+    $message .= "En tant qu'administrateur, vous pouvez toujours accéder à l'application via l'administration WordPress.\n\n";
+    $message .= "Administration : {$site_url}/wp-admin/admin.php?page=gem-prox-qrqc\n\n";
+    $message .= "Cordialement,\nSystème de monitoring QRQC";
+    
+    $headers = array('Content-Type: text/plain; charset=UTF-8');
+    
+    wp_mail($admin_email, $subject, $message, $headers);
+}
+
+/**
  * Fonctions d'activation et de désactivation du plugin.
- * Crée le dossier de stockage des rapports et la table de la base de données à l'activation.
- * Supprime les données de la base de données à la désactivation.
  */
 function gem_prox_qrqc_activate() {
     require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/admin-functions.php';
     gem_prox_qrqc_create_reports_table();
+    gem_prox_qrqc_create_stats_table();
+    gem_prox_qrqc_create_error_logs_table();
     gem_prox_qrqc_create_reports_folder();
+    
+    // Programmer la vérification quotidienne du mode maintenance
+    if (!wp_next_scheduled('gem_prox_qrqc_check_maintenance')) {
+        wp_schedule_event(time(), 'hourly', 'gem_prox_qrqc_check_maintenance');
+    }
 }
 register_activation_hook( __FILE__, 'gem_prox_qrqc_activate' );
 
 function gem_prox_qrqc_deactivate() {
-    require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/admin-functions.php';
-    gem_prox_qrqc_delete_reports_table();
-    delete_option('gem_prox_qrqc_api_key');
+    add_action('admin_notices', 'gem_prox_qrqc_deactivation_notice');
 }
 register_deactivation_hook( __FILE__, 'gem_prox_qrqc_deactivate' );
+
+/**
+ * Vérification périodique du mode maintenance
+ */
+function gem_prox_qrqc_check_maintenance_mode() {
+    gem_prox_qrqc_is_maintenance_mode(); // Cette fonction désactive automatiquement si expiré
+}
+add_action('gem_prox_qrqc_check_maintenance', 'gem_prox_qrqc_check_maintenance_mode');
+
+/**
+ * Notice de désactivation avec options de suppression des données
+ */
+function gem_prox_qrqc_deactivation_notice() {
+    if (isset($_GET['gem_qrqc_cleanup'])) {
+        $cleanup = sanitize_text_field($_GET['gem_qrqc_cleanup']);
+        if ($cleanup === 'yes') {
+            require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/admin-functions.php';
+            gem_prox_qrqc_delete_all_data();
+            echo '<div class="notice notice-success"><p>Toutes les données de l\'extension QRQC ont été supprimées.</p></div>';
+        } else {
+            echo '<div class="notice notice-info"><p>Les données de l\'extension QRQC ont été conservées.</p></div>';
+        }
+        return;
+    }
+    
+    $cleanup_url_yes = add_query_arg('gem_qrqc_cleanup', 'yes', admin_url('plugins.php'));
+    $cleanup_url_no = add_query_arg('gem_qrqc_cleanup', 'no', admin_url('plugins.php'));
+    
+    echo '<div class="notice notice-warning">
+        <p><strong>Extension Gemini QRQC désactivée</strong></p>
+        <p>Voulez-vous supprimer toutes les données de l\'extension (rapports, statistiques, logs d\'erreur) ?</p>
+        <p>
+            <a href="' . esc_url($cleanup_url_yes) . '" class="button button-primary">Oui, supprimer toutes les données</a>
+            <a href="' . esc_url($cleanup_url_no) . '" class="button">Non, conserver les données</a>
+        </p>
+    </div>';
+}
 
 /**
  * Enfile les scripts et styles nécessaires à l'application QRQC.
@@ -48,12 +188,12 @@ function gem_prox_qrqc_enqueue_scripts() {
     global $post;
     if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'gemini_qrqc_app' ) ) {
         wp_enqueue_style( 'tailwind-css', 'https://cdn.tailwindcss.com' );
-        wp_enqueue_style( 'qrqc-app-styles', plugin_dir_url( __FILE__ ) . 'assets/css/styles.css', array(), '1.1.1' );
+        wp_enqueue_style( 'qrqc-app-styles', plugin_dir_url( __FILE__ ) . 'assets/css/styles.css', array(), '1.2.2' );
 
         wp_enqueue_script( 'jspdf', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', array(), '2.5.1', true );
         wp_enqueue_script( 'jspdf-autotable', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.16/jspdf.plugin.autotable.min.js', array('jspdf'), '3.5.16', true );
 
-        wp_enqueue_script( 'qrqc-app-js', plugin_dir_url( __FILE__ ) . 'assets/js/qrqc-app.js', array('jspdf', 'jspdf-autotable'), '1.1.1', true );
+        wp_enqueue_script( 'qrqc-app-js', plugin_dir_url( __FILE__ ) . 'assets/js/qrqc-app.js', array('jspdf', 'jspdf-autotable'), '1.2.2', true );
 
         wp_localize_script( 'qrqc-app-js', 'geminiProxConfig', array(
             'proxy_url' => admin_url('admin-ajax.php'),
@@ -69,9 +209,24 @@ add_action( 'wp_enqueue_scripts', 'gem_prox_qrqc_enqueue_scripts' );
  * Enregistre un shortcode pour afficher l'application sur une page.
  */
 function gem_prox_qrqc_app_shortcode() {
+    // Vérifier si l'application est en maintenance (sauf pour les admins)
+    if (gem_prox_qrqc_is_maintenance_mode() && !current_user_can('manage_options')) {
+        return gem_prox_qrqc_maintenance_page();
+    }
+    
+    // Incrémenter le compteur de pages vues
+    gem_prox_qrqc_increment_stat('page_views');
+    
     ob_start();
     ?>
     <div class="gemini-qrqc-app-container">
+        <?php if (gem_prox_qrqc_is_maintenance_mode() && current_user_can('manage_options')) : ?>
+            <div class="notice notice-warning" style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107;">
+                <p><strong>🔧 Mode administrateur :</strong> L'application est en mode maintenance pour les utilisateurs normaux, mais vous pouvez l'utiliser en tant qu'administrateur.</p>
+                <p><a href="<?php echo admin_url('admin.php?page=gem-prox-qrqc'); ?>">Gérer le mode maintenance</a></p>
+            </div>
+        <?php endif; ?>
+        
         <header class="text-center mb-10">
             <h1 class="text-4xl md:text-5xl font-bold mb-4">Résolution de Problème QRQC avec IA</h1>
             <p id="app-intro-text" class="text-lg text-gray-600">Décrivez votre problème industriel et laissez l'IA vous guider dans une analyse structurée selon la méthodologie QRQC pour identifier les causes racines et établir un plan d'action efficace.</p>
@@ -127,7 +282,7 @@ function gem_prox_qrqc_app_shortcode() {
                 </button>
             </div>
             
-            <!-- AMÉLIORATION UX : Boutons avec tooltips et organisation améliorée -->
+            <!-- Boutons avec tooltips et organisation améliorée -->
             <div class="button-group">
                 <div class="tooltip">
                     <button id="save-discussion-btn" class="btn-secondary-outline">
@@ -237,11 +392,267 @@ function gem_prox_qrqc_app_shortcode() {
     <?php
     return ob_get_clean();
 }
+
+/**
+ * Affiche la page de maintenance
+ */
+function gem_prox_qrqc_maintenance_page() {
+    $maintenance_until = get_option('gem_prox_qrqc_maintenance_until', 0);
+    $maintenance_reason = get_option('gem_prox_qrqc_maintenance_reason', 'maintenance');
+    
+    $until_date = $maintenance_until ? date('d/m/Y', $maintenance_until) : 'bientôt';
+    $until_time = $maintenance_until ? date('H:i', $maintenance_until) : '01:00';
+    
+    ob_start();
+    ?>
+    <div class="gemini-qrqc-maintenance-container">
+        <div class="maintenance-content">
+            <div class="maintenance-icon">🔧</div>
+            <h1>Application en maintenance</h1>
+            
+            <?php if ($maintenance_reason === 'quota_exceeded') : ?>
+                <p class="maintenance-reason">
+                    Notre quota quotidien d'utilisation de l'intelligence artificielle a été atteint.
+                </p>
+                <p class="maintenance-message">
+                    L'application sera automatiquement disponible demain à <strong><?php echo $until_time; ?></strong> 
+                    (remise à zéro du quota).
+                </p>
+            <?php else : ?>
+                <p class="maintenance-reason">
+                    L'application est temporairement indisponible pour maintenance technique.
+                </p>
+                <p class="maintenance-message">
+                    Retour en service prévu le <strong><?php echo $until_date; ?></strong> à <strong><?php echo $until_time; ?></strong>.
+                </p>
+            <?php endif; ?>
+            
+            <div class="maintenance-countdown" id="maintenance-countdown">
+                <div class="countdown-item">
+                    <span class="countdown-number" id="hours">--</span>
+                    <span class="countdown-label">heures</span>
+                </div>
+                <div class="countdown-item">
+                    <span class="countdown-number" id="minutes">--</span>
+                    <span class="countdown-label">minutes</span>
+                </div>
+            </div>
+            
+            <div class="maintenance-info">
+                <h3>Que pouvez-vous faire en attendant ?</h3>
+                <ul>
+                    <li>📚 Préparez la description détaillée de votre problème</li>
+                    <li>📋 Rassemblez les informations sur votre processus (qui, quoi, où, quand)</li>
+                    <li>🔍 Réfléchissez aux causes potentielles et aux impacts</li>
+                    <li>⏰ Revenez après <?php echo $until_time; ?> pour une analyse complète</li>
+                </ul>
+            </div>
+            
+            <div class="maintenance-contact">
+                <p><strong>Besoin urgent d'aide ?</strong></p>
+                <p>Contactez directement votre responsable qualité ou utilisez vos outils QRQC habituels.</p>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .gemini-qrqc-maintenance-container {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        
+        .maintenance-content {
+            background: #fff;
+            border-radius: 20px;
+            padding: 60px 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            border: 3px solid #f0f0f0;
+        }
+        
+        .maintenance-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .maintenance-content h1 {
+            font-size: 2.5em;
+            color: #d72c4b;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        
+        .maintenance-reason {
+            font-size: 1.2em;
+            color: #514e57;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        .maintenance-message {
+            font-size: 1.1em;
+            color: #239e9a;
+            margin-bottom: 40px;
+            font-weight: 600;
+        }
+        
+        .maintenance-countdown {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 50px;
+            padding: 30px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .countdown-item {
+            text-align: center;
+        }
+        
+        .countdown-number {
+            display: block;
+            font-size: 3em;
+            font-weight: bold;
+            color: #d72c4b;
+            line-height: 1;
+        }
+        
+        .countdown-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .maintenance-info {
+            background: #e8f5e8;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 4px solid #239e9a;
+        }
+        
+        .maintenance-info h3 {
+            color: #239e9a;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .maintenance-info ul {
+            text-align: left;
+            display: inline-block;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        
+        .maintenance-info li {
+            margin-bottom: 8px;
+            font-size: 1.05em;
+            color: #2d5a27;
+        }
+        
+        .maintenance-contact {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .maintenance-contact p {
+            margin-bottom: 10px;
+            color: #856404;
+        }
+        
+        @media (max-width: 768px) {
+            .maintenance-content {
+                padding: 40px 20px;
+            }
+            
+            .maintenance-content h1 {
+                font-size: 2em;
+            }
+            
+            .maintenance-countdown {
+                gap: 15px;
+                padding: 20px;
+            }
+            
+            .countdown-number {
+                font-size: 2.5em;
+            }
+            
+            .maintenance-icon {
+                font-size: 60px;
+            }
+        }
+    </style>
+    
+    <script>
+        // Compte à rebours en temps réel
+        function updateCountdown() {
+            const maintenanceUntil = <?php echo $maintenance_until ? $maintenance_until * 1000 : 'null'; ?>;
+            
+            if (!maintenanceUntil) {
+                document.getElementById('hours').textContent = '--';
+                document.getElementById('minutes').textContent = '--';
+                return;
+            }
+            
+            const now = new Date().getTime();
+            const timeLeft = maintenanceUntil - now;
+            
+            if (timeLeft <= 0) {
+                // La maintenance est terminée, recharger la page
+                location.reload();
+                return;
+            }
+            
+            const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            
+            document.getElementById('hours').textContent = hours.toString().padStart(2, '0');
+            document.getElementById('minutes').textContent = minutes.toString().padStart(2, '0');
+        }
+        
+        // Mettre à jour le compte à rebours toutes les minutes
+        updateCountdown();
+        setInterval(updateCountdown, 60000);
+        
+        // Vérifier toutes les 5 minutes si la maintenance est terminée
+        setInterval(function() {
+            fetch(window.location.href)
+                .then(response => response.text())
+                .then(html => {
+                    if (!html.includes('maintenance-container')) {
+                        location.reload();
+                    }
+                })
+                .catch(error => console.log('Vérification maintenance:', error));
+        }, 300000); // 5 minutes
+    </script>
+    <?php
+    return ob_get_clean();
+}
+
 add_shortcode( 'gemini_qrqc_app', 'gem_prox_qrqc_app_shortcode' );
 
 // Inclusion des fichiers d'administration et de gestion des requêtes
 require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/admin-menu.php';
 require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/admin-functions.php';
+require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/error-handler.php';
+require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/stats-tracker.php';
 
 /**
  * Gère les requêtes du proxy via l'API AJAX de WordPress.
@@ -249,28 +660,36 @@ require_once GEM_PROX_QRQC_PLUGIN_DIR . 'includes/admin-functions.php';
 function gem_prox_qrqc_handle_proxy_request() {
     // Sécurité : Vérifier le nonce
     if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( $_POST['nonce'] ), 'gem-prox-qrqc-nonce' ) ) {
-        wp_send_json_error( 'Nonce de sécurité invalide.', 403 );
+        gem_prox_qrqc_log_error('security', 'Nonce de sécurité invalide', $_POST);
+        wp_send_json_error( 'Une erreur de sécurité s\'est produite. Cette application est encore en développement. Veuillez recharger la page et réessayer. L\'administrateur a été informé.', 403 );
     }
 
     // Récupérer la clé API depuis la base de données
     $api_key = get_option('gem_prox_qrqc_api_key', '');
     if ( empty( $api_key ) ) {
-        wp_send_json_error( 'La clé API n\'est pas configurée.', 500 );
+        gem_prox_qrqc_log_error('configuration', 'Clé API manquante', array());
+        wp_send_json_error( 'La configuration de l\'application est incomplète. Cette application est encore en développement. L\'administrateur a été informé.', 500 );
     }
 
     // Gérer la requête
     $action = isset( $_POST['action'] ) ? sanitize_text_field( $_POST['action'] ) : '';
 
     if ($action === 'gemini_proxy_request') {
+        gem_prox_qrqc_increment_stat('api_requests');
+        
         // Logique pour les requêtes Gemini
         $data = json_decode( stripslashes( $_POST['payload_json'] ), true );
         
         if ( ! $data || json_last_error() !== JSON_ERROR_NONE ) {
-            wp_send_json_error( 'Requête JSON invalide: ' . json_last_error_msg(), 400 );
+            gem_prox_qrqc_log_error('api', 'Requête JSON invalide: ' . json_last_error_msg(), $_POST);
+            gem_prox_qrqc_increment_stat('errors');
+            wp_send_json_error( 'Désolé, une erreur technique s\'est produite. Veuillez réessayer dans quelques secondes. Cette application est encore en développement et l\'administrateur a été informé.', 400 );
         }
     
         if ( ! isset( $data['contents'] ) || ! is_array( $data['contents'] ) ) {
-            wp_send_json_error( 'Structure de données invalide: contents manquant', 400 );
+            gem_prox_qrqc_log_error('api', 'Structure de données invalide: contents manquant', $data);
+            gem_prox_qrqc_increment_stat('errors');
+            wp_send_json_error( 'Désolé, une erreur technique s\'est produite. Veuillez réessayer dans quelques secondes. Cette application est encore en développement et l\'administrateur a été informé.', 400 );
         }
 
         $gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=" . $api_key;
@@ -292,28 +711,67 @@ function gem_prox_qrqc_handle_proxy_request() {
         curl_close( $ch );
 
         if ( $curl_error ) {
-            wp_send_json_error( 'Erreur cURL: ' . $curl_error, 500 );
+            gem_prox_qrqc_log_error('api', 'Erreur cURL: ' . $curl_error, array('api_url' => $gemini_api_url));
+            gem_prox_qrqc_increment_stat('errors');
+            wp_send_json_error( 'Désolé, une erreur de connexion s\'est produite. Veuillez réessayer dans quelques secondes. Cette application est encore en développement et l\'administrateur a été informé.', 500 );
+        }
+
+        // Gestion spéciale de l'erreur 429 (quota dépassé)
+        if ( $http_code === 429 ) {
+            $response_data = json_decode( $response, true );
+            
+            // Vérifier si c'est bien une erreur de quota
+            if (isset($response_data['error']['status']) && $response_data['error']['status'] === 'RESOURCE_EXHAUSTED') {
+                // Activer le mode maintenance automatiquement
+                gem_prox_qrqc_activate_maintenance_mode('quota_exceeded');
+                
+                gem_prox_qrqc_log_error('api', 'Quota API dépassé - Mode maintenance activé', array(
+                    'http_code' => $http_code,
+                    'response' => $response,
+                    'maintenance_activated' => true
+                ));
+                gem_prox_qrqc_increment_stat('errors');
+                
+                wp_send_json_error( 'Le quota quotidien d\'utilisation de l\'IA a été atteint. L\'application sera automatiquement disponible demain à 1h du matin. L\'administrateur a été informé et la maintenance s\'activera automatiquement.', 429 );
+            }
         }
 
         if ( $http_code !== 200 ) {
-            wp_send_json_error( 'Erreur API Gemini (HTTP ' . $http_code . '): ' . $response, $http_code );
+            gem_prox_qrqc_log_error('api', 'Erreur API Gemini (HTTP ' . $http_code . '): ' . $response, array('http_code' => $http_code));
+            gem_prox_qrqc_increment_stat('errors');
+            wp_send_json_error( 'Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques secondes. Cette application est encore en développement et l\'administrateur a été informé.', $http_code );
         }
 
         $response_data = json_decode( $response, true );
         if ( json_last_error() !== JSON_ERROR_NONE ) {
-            wp_send_json_error( 'Réponse API invalide: ' . json_last_error_msg(), 500 );
+            gem_prox_qrqc_log_error('api', 'Réponse API invalide: ' . json_last_error_msg(), array('response' => $response));
+            gem_prox_qrqc_increment_stat('errors');
+            wp_send_json_error( 'Désolé, une erreur de traitement s\'est produite. Veuillez réessayer dans quelques secondes. Cette application est encore en développement et l\'administrateur a été informé.', 500 );
         }
 
         if ( ! isset( $response_data['candidates'] ) ) {
-            wp_send_json_error( 'Structure de réponse inattendue: ' . json_encode( $response_data ), 500 );
+            gem_prox_qrqc_log_error('api', 'Structure de réponse inattendue', $response_data);
+            gem_prox_qrqc_increment_stat('errors');
+            wp_send_json_error( 'Désolé, une erreur de traitement s\'est produite. Veuillez réessayer dans quelques secondes. Cette application est encore en développement et l\'administrateur a été informé.', 500 );
+        }
+
+        // Incrémenter les statistiques de succès
+        if (isset($data['generationConfig']['responseMimeType']) && $data['generationConfig']['responseMimeType'] === 'application/json') {
+            gem_prox_qrqc_increment_stat('reports_generated');
+        } else {
+            gem_prox_qrqc_increment_stat('conversations_started');
         }
 
         wp_send_json_success( $response_data );
 
     } elseif ($action === 'store_report') {
+        gem_prox_qrqc_increment_stat('reports_stored');
+        
         // Logique pour le stockage du rapport
         if ( ! isset( $_POST['report_content'] ) || ! isset( $_POST['file_name'] ) || ! isset( $_POST['problem_statement'] ) ) {
-            wp_send_json_error( 'Données manquantes pour le stockage.', 400 );
+            gem_prox_qrqc_log_error('storage', 'Données manquantes pour le stockage', $_POST);
+            gem_prox_qrqc_increment_stat('errors');
+            wp_send_json_error( 'Désolé, une erreur de sauvegarde s\'est produite. Votre rapport a tout de même été téléchargé. L\'administrateur a été informé.', 400 );
         }
 
         $report_content = sanitize_text_field( $_POST['report_content'] );
@@ -333,7 +791,7 @@ function gem_prox_qrqc_handle_proxy_request() {
         if ( file_put_contents( $file_path, $pdf_data ) ) {
             global $wpdb;
             $table_name = $wpdb->prefix . 'gem_qrqc_reports';
-            $wpdb->insert(
+            $result = $wpdb->insert(
                 $table_name,
                 array(
                     'problem_statement' => $problem_statement,
@@ -341,15 +799,56 @@ function gem_prox_qrqc_handle_proxy_request() {
                     'report_date' => current_time('mysql'),
                 )
             );
+            
+            if ($result === false) {
+                gem_prox_qrqc_log_error('storage', 'Erreur BDD lors de la sauvegarde: ' . $wpdb->last_error, array('file_name' => $file_name));
+                gem_prox_qrqc_increment_stat('errors');
+                wp_send_json_error( 'Désolé, une erreur de sauvegarde s\'est produite. Votre rapport a tout de même été téléchargé. L\'administrateur a été informé.', 500 );
+            }
+            
             wp_send_json_success( array( 'message' => 'Rapport sauvegardé avec succès.' ) );
         } else {
-            wp_send_json_error( 'Erreur lors de la sauvegarde du rapport.', 500 );
+            gem_prox_qrqc_log_error('storage', 'Erreur lors de l\'écriture du fichier PDF', array('file_path' => $file_path));
+            gem_prox_qrqc_increment_stat('errors');
+            wp_send_json_error( 'Désolé, une erreur de sauvegarde s\'est produite. Votre rapport a tout de même été téléchargé. L\'administrateur a été informé.', 500 );
         }
     } else {
+        gem_prox_qrqc_log_error('security', 'Action non autorisée: ' . $action, $_POST);
         wp_send_json_error( 'Action non autorisée.', 403 );
     }
 }
 add_action( 'wp_ajax_gemini_proxy_request', 'gem_prox_qrqc_handle_proxy_request' );
 add_action( 'wp_ajax_nopriv_gemini_proxy_request', 'gem_prox_qrqc_handle_proxy_request' );
-add_action( 'wp_ajax_store_report', 'gem_prox_qrqc_handle_proxy_request' ); // L'action est gérée par la même fonction
+add_action( 'wp_ajax_store_report', 'gem_prox_qrqc_handle_proxy_request' );
 add_action( 'wp_ajax_nopriv_store_report', 'gem_prox_qrqc_handle_proxy_request' );
+
+/**
+ * Fonction utilitaire pour incrémenter les statistiques
+ */
+function gem_prox_qrqc_increment_stat($stat_name) {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'gem_qrqc_stats';
+    $today = date('Y-m-d');
+    
+    $existing = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $table_name WHERE stat_name = %s AND stat_date = %s",
+        $stat_name, $today
+    ));
+    
+    if ($existing) {
+        $wpdb->update(
+            $table_name,
+            array('stat_value' => $existing->stat_value + 1),
+            array('id' => $existing->id)
+        );
+    } else {
+        $wpdb->insert(
+            $table_name,
+            array(
+                'stat_name' => $stat_name,
+                'stat_value' => 1,
+                'stat_date' => $today
+            )
+        );
+    }
+}
