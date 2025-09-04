@@ -1,5 +1,18 @@
 # Changelog - Gemini QRQC Problem Solver
 
+## Version 1.2.3
+**02/09/2025 - Amélioration des instructions à Gemini : un véritable assistant !**
+
+### 🔧 **Système de maintenance automatique**
+- **Détection intelligente des causes présupposées** : éviter de prendre les causes énoncées par l'utilisateur pour argent comptant trop tôt
+- **Validation de la précision du problème initial** : évaluaer la précision, demander des exemples concrets, proposer d'aller recueillir des éléments complémentaires
+- **QQOQCP adaptatif et intelligent** : questions uniquement sur les éléments manquants
+- **Gestion optimisée des impacts QCDSM** : priorisation par l'utilisateur puis questionnement seulement sur les éléments manquants
+- **Anti-piège "erreur humaine"** : creuser systématiquement les causes systémiques sous-jacentes lorsqu'il est question d'erreur humaine
+- **Génération créative d'hypothèses** : proposer aussi des questions provocatrices (et si ...?)
+- **Alerte données insuffisantes** : détection du manque de données factuelles
+- 
+
 ## Version 1.2.2
 **15/08/2025 - Système de maintenance automatique pour gestion quota API**
 

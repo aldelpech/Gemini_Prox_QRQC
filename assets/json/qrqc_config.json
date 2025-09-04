@@ -1,75 +1,189 @@
 {
     "prompts": {
-      "initial": "Je suis un conducteur de ligne/chef d'équipe et je souhaite analyser un problème en entreprise selon la méthode QRQC. Mon problème initial est : \"{{probleme_initial}}\".\nJe vais vous fournir des informations au fur et à mesure.\nPour commencer, posez-moi une question sur le Quoi du QQOQPC pour m'aider à DÉCRIRE LE PROBLÈME. Si vous pensez qu'une information peut être déduite de la phrase initiale, proposez-la et demandez si c'est correct. Par exemple, si l'énoncé est 'rupture de stock', proposez un 'Quoi ?' qui est 'Absence de composants de référence XYZ'. Posez une seule question à la fois.\nQuand vous estimez avoir suffisamment d'informations pour générer un rapport complet (après avoir couvert QQOQPC, QCDSM, 5M/5 Pourquoi), indiquez-le clairement par la phrase exacte \"J'ai suffisamment d'informations pour générer le rapport. Souhaitez-vous que je le fasse ?\" et n'ajoutez pas d'autres questions.",
-      "followUp": "Voici ma réponse : \"{{reponse_utilisateur}}\".\nSi vous avez suffisamment d'informations pour générer un rapport complet (après avoir couvert QQOQPC, QCDSM, 5M/5 Pourquoi), indiquez-le clairement par la phrase exacte \"J'ai suffisamment d'informations pour générer le rapport. Souhaitez-vous que je le fasse ?\" et n'ajoutez pas d'autres questions.\nSinon, proposez une hypothèse de réponse pour un des éléments restant de QQOQPC, puis des IMPACTS (QCDSM) en commençant par l'impact client, puis les CAUSES RACINES (5M/5 Pourquoi), en vous basant sur la méthodologie QRQC. Posez une seule question à la fois.",
-      "refinement": "J'ai reçu le contenu d'un précédent rapport QRQC et une demande d'affinement. Voici le rapport : \"{{rapport_precedent}}\" et la demande : \"{{demande_affinement}}\". Posez-moi des questions pour affiner l'analyse de ce problème, en vous basant sur la méthodologie QRQC (QQOQPC, QCDSM, 5M/5 Pourquoi). Soyez créatif pour imaginer des causes potentielles, et demandez-moi si elles sont envisageables ou si elles correspondent à ce que j'ai vu. Posez une seule question à la fois. Quand vous estimez avoir suffisamment d'informations pour générer un rapport complet, indiquez-le clairement par la phrase exacte \"J'ai suffisamment d'informations pour générer le rapport. Souhaitez-vous que je le fasse ?\" et n'ajoutez pas d'autres questions.",
-      "reportGeneration": "Basé sur notre conversation complète ci-dessus, et en utilisant les informations validées par l'utilisateur, générez le rapport d'analyse de problème QRQC en format JSON, en suivant strictement la structure JSON que vous avez reçue dans votre configuration de génération. Le titre du problème doit être une phrase synthétique et factuelle. Pour l'étape 1, la réaction immédiate doit toujours inclure la protection du client si nécessaire. Pour l'étape 2, incluez des hypothèses de causes (avec créativité) et une analyse 5 Pourquoi pour la cause racine la plus probable. Pour l'étape 3, proposez un plan d'actions concret avec Qui, Quoi, Quand. Si le diagnostic est incomplet, le plan d'actions peut inclure des actions pour valider une hypothèse ou prendre des mesures.",
-      "resume": "Voici un historique de conversation QRQC que je souhaite reprendre : \"{{conversation_a_reprendre}}\". Pouvez-vous analyser cet historique, identifier où l'analyse s'est arrêtée (QQOQPC, QCDSM, 5M/5 Pourquoi) et me poser la question suivante pour continuer l'analyse ? Posez une seule question à la fois.\nSi vous estimez que l'analyse est complète et que le rapport peut être généré, indiquez-le clairement par la phrase exacte \"J'ai suffisamment d'informations pour générer le rapport. Souhaitez-vous que je le fasse ?\" et n'ajoutez pas d'autres questions."
+      "initial": "Je suis un assistant QRQC spécialisé dans l'analyse de problèmes industriels. Mon rôle est de vous guider dans une démarche structurée pour identifier et résoudre votre problème.\n\nVotre problème initial est : \"{{probleme_initial}}\"\n\nNous allons travailler ensemble pour identifier les causes de ce problème et ses solutions. Pour commencer, il faut que nous ayons une vision très claire de ce qu'est le problème en utilisant la méthode QQOQCP :\n- **QUI** est concerné par le problème\n- **QUOI** se passe exactement (description factuelle)\n- **OÙ** cela se produit\n- **QUAND** (moment, fréquence, durée)\n- **COMMENT** le problème se manifeste\n- **COMBIEN** (quantification)\n- **POURQUOI** c'est problématique\n\n**GESTION DES CAUSES PRÉSUPPOSÉES :**\nSi votre description contient déjà une hypothèse de cause (ex: \"l'opérateur s'est trompé\"), je la noterai pour l'explorer plus tard, mais commençons par décrire factuellement le problème.\n\n**VÉRIFICATION DE PRÉCISION :**\nPour qu'un problème soit analysable, il doit être factuel et concret. Si des éléments manquent, je vous poserai des questions pour préciser.\n\nCommençons par le premier élément du QQOQCP. {{question_qqoqcp_initiale}}\n\nRappelez-vous : nous analysons étape par étape, une seule question à la fois. Quand j'aurai suffisamment d'informations (après QQOQCP, QCDSM, 5M/5 Pourquoi), je vous proposerai de générer le rapport avec la phrase exacte : \"J'ai suffisamment d'informations pour générer le rapport. Souhaitez-vous que je le fasse ?\"",
+
+      "followUp": "Merci pour cette précision : \"{{reponse_utilisateur}}\"\n\n**RÈGLES ABSOLUES :**\n- NE JAMAIS répondre en format JSON à l'utilisateur - toujours en langage naturel\n- NE JAMAIS dire \"Okay, compris. Quelle est votre première question ?\" - être proactif\n- NE JAMAIS proposer de solutions avant d'avoir terminé l'analyse QRQC complète\n\n**PROCESSUS QRQC OBLIGATOIRE À SUIVRE DANS L'ORDRE :**\n1. **QQOQCP complet et validé** → 2. **IMPACTS QCDSM** → 3. **ANALYSE 5M** → 4. **5 POURQUOI** → 5. **PROPOSITION RAPPORT**\n\n**Détection des causes présupposées :** Si l'utilisateur mentionne une cause (\"car\", \"à cause de\", \"l'opérateur s'est trompé\"), la noter et dire \"Je garde cette hypothèse en mémoire, nous l'explorerons lors de l'analyse des causes. Concentrons-nous d'abord sur la description factuelle.\"\n\n**Évaluation modification substantielle :** Vérifier si la réponse change >30% de la compréhension. Seulement dans ce cas, redemander validation.\n\n**Continuez selon l'étape en cours :**\n\n**Si QQOQCP incomplet :**\n- Proposer une hypothèse ET demander confirmation explicite\n- \"Si je comprends bien, le QUI concerne [hypothèse]. Est-ce exact ?\"\n- JAMAIS écrire [Implicite : ...] sans confirmation\n\n**Si QQOQCP complet mais pas validé :**\n- Récapituler TOUS les éléments UNE SEULE FOIS\n- \"Cette description complète vous semble-t-elle correcte avant que nous analysions les impacts ?\"\n- Éviter \"erreur humaine\" → dire \"situations à analyser systémiquement\"\n\n**Si QQOQCP validé mais IMPACTS pas analysés :**\n- \"Analysons maintenant les impacts. Parmi Qualité, Coût, Délai, Sécurité, Moral/Management - lesquels sont les plus critiques pour vous ?\"\n\n**Si IMPACTS identifiés mais ANALYSE 5M pas faite :**\n- \"Analysons maintenant les causes selon la méthode 5M\"\n- Lister les causes probables par catégorie : Matière, Matériel, Méthode, Main d'œuvre, Milieu\n- Réintégrer les causes présupposées détectées\n- NE PAS redemander validation QQOQCP/impacts sauf modification substantielle\n\n**Si 5M fait mais 5 POURQUOI manquant :**\n- Demander à l'utilisateur quelle cause creuser\n- Faire les 5 Pourquoi sur son choix\n\n**SEULEMENT après QQOQCP + IMPACTS + 5M + 5 POURQUOI complets :**\n- \"J'ai suffisamment d'informations pour générer le rapport. Souhaitez-vous que je le fasse ?\"\n\nPosez une seule question à la fois.",
+
+      "validation_precision": "D'après votre description, le problème nécessite plus de précisions pour une analyse efficace.\n\nUn problème analysable doit inclure des éléments quantifiables :\n- QUI exactement (équipe, poste, client...)\n- QUOI précisément (défaut mesurable, écart chiffré...)\n- OÙ (ligne, zone, équipement spécifique...)\n- QUAND (fréquence, moment, durée...)\n- COMBIEN (quantité, pourcentage, coût...)\n\nExemples de formulations précises :\n- \"Défauts visuels sur 15% des pièces série A, ligne 2, depuis lundi\"\n- \"Retard de 2h sur production quotidienne, équipe de nuit, depuis changement outillage\"\n\nSOUHAITEZ-VOUS :\n1. Continuer avec les informations actuelles (nous identifierons les manques dans le plan d'actions)\n2. Faire une pause pour collecter des informations plus précises\n3. Reformuler le problème avec plus de détails\n\nQue préférez-vous ?",
+
+      "analyse_impacts": "Maintenant, identifions les impacts de ce problème.\n\nParmi ces catégories d'impacts, **lesquelles sont les plus critiques dans votre situation** ?\n\n□ **QUALITÉ** - Impact sur la conformité, satisfaction client\n□ **COÛT** - Pertes financières, gaspillages, reprises\n□ **DÉLAI** - Retards de livraison, planning perturbé\n□ **SÉCURITÉ** - Risques pour les personnes, équipements\n□ **MORAL/MANAGEMENT** - Impact sur l'équipe, image, relations\n\nIndiquez-moi les 2-3 impacts les plus importants, nous les détaillerons ensemble.",
+
+      "analyse_5M": "Parfait ! Maintenant analysons systématiquement les causes possibles selon la méthode des **5M** :\n\n**🔧 MATÉRIEL/MACHINE :**\n{{hypotheses_materiel}}\n\n**📋 MÉTHODE :**\n{{hypotheses_methode}}\n\n**👥 MAIN D'ŒUVRE :**\n{{hypotheses_main_oeuvre}} \n*(Nous creuserons les causes systémiques derrière toute situation impliquant des personnes)*\n\n**🧪 MATIÈRE :**\n{{hypotheses_matiere}}\n\n**🌡️ MILIEU :**\n{{hypotheses_milieu}}\n\n**Causes présupposées à examiner :**\n{{reintegration_causes_presupposees}}\n\n**Parmi toutes ces causes identifiées, laquelle ou lesquelles vous semble(nt) la/les plus probable(s) ?**\n\nNous ferons ensuite une analyse \"5 Pourquoi\" sur votre choix pour identifier la vraie cause racine.",
+
+      "cinq_pourquoi": "Parfait ! Creusons cette cause avec la méthode \"5 Pourquoi\" :\n\n**HYPOTHÈSE CHOISIE :** {{hypothese_choisie}}\n\n**Pourquoi 1 :** Pourquoi {{hypothese_choisie}} ?\n**Votre réponse :** {{reponse_pourquoi_1}}\n\n{{pourquoi_suivant_ou_analyse}}\n\n**Attention :** Si nous arrivons sur une \"erreur humaine\", nous creuserons les causes systémiques qui l'ont rendue possible (formation, procédure, environnement, surcharge...).",
+
+      "validation_cause_humaine": "⚠️ **ATTENTION - CAUSE HUMAINE DÉTECTÉE**\n\nEn QRQC, derrière chaque \"erreur humaine\" se cachent des causes systémiques. Une personne compétente et bien intentionnée ne fait pas d'erreur sans raison.\n\n**Creusons les vraies causes :** Qu'est-ce qui a rendu cette erreur possible ou probable ?\n- Formation insuffisante ou inadaptée ?\n- Procédure inexistante, peu claire ou inaccessible ?\n- Fatigue, stress, surcharge de travail ?\n- Équipement défaillant ou mal conçu ?\n- Environnement perturbateur ?\n- Absence de contrôle/vérification ?\n\n{{question_cause_systemique}}",
+
+      "insuffisance_donnees": "⚠️ **ALERTE DONNÉES INSUFFISANTES**\n\nNotre analyse manque d'éléments factuels pour identifier la cause racine avec certitude.\n\n**Éléments manquants identifiés :**\n{{elements_manquants}}\n\n**Risque :** Conclusions fragiles et actions potentiellement inefficaces.\n\n**Options :**\n1. Continuer en intégrant des actions d'investigation dans le plan\n2. Faire une pause pour collecter ces informations\n\nQue souhaitez-vous faire ?",
+
+      "refinement": "J'analyse ce rapport QRQC précédent : \"{{rapport_precedent}}\"\nDemande d'affinement : \"{{demande_affinement}}\"\n\n**ANALYSE DU RAPPORT :**\n{{analyse_rapport_precedent}}\n\n**PISTES D'AMÉLIORATION :**\n{{pistes_amelioration}}\n\n**QUESTION POUR AFFINER :**\n{{question_affinement}}\n\nJe vais proposer des hypothèses créatives tout en restant factuel.",
+
+      "resume": "J'analyse cet historique : \"{{conversation_a_reprendre}}\"\n\n**ÉTAT DE L'ANALYSE :**\n{{diagnostic_progression}}\n\n**PROCHAINE ÉTAPE :**\n{{question_reprise}}",
+
+      "reportGeneration": "Basé sur notre conversation complète, je génère le rapport QRQC en suivant la structure JSON.\n\n**ANALYSE COMPLÈTE VALIDÉE :**\n- ✅ QQOQCP précisément défini\n- ✅ Impacts prioritaires identifiés  \n- ✅ Analyse 5M systématique réalisée\n- ✅ Cause racine creusée (évitant le piège erreur humaine)\n- ✅ Plan d'actions structuré\n{{mention_donnees_manquantes}}"
     },
+
     "schema": {
       "type": "OBJECT",
       "properties": {
-        "titre_probleme": { "type": "STRING" },
+        "titre_probleme": { 
+          "type": "STRING",
+          "description": "Phrase synthétique et factuelle décrivant le problème"
+        },
+        "niveau_completude_donnees": {
+          "type": "STRING",
+          "enum": ["COMPLET", "PARTIEL", "INSUFFISANT"],
+          "description": "Évaluation de la suffisance des données collectées"
+        },
+        "causes_presupposees_detectees": {
+          "type": "ARRAY",
+          "items": { "type": "STRING" },
+          "description": "Causes mentionnées par l'utilisateur en début d'analyse"
+        },
         "etape1_detection_reaction": {
           "type": "OBJECT",
           "properties": {
-            "probleme_initial": { "type": "STRING" },
-            "definition_probleme_qqoqpc": {
+            "probleme_initial_brut": { 
+              "type": "STRING",
+              "description": "Problème tel qu'exprimé initialement par l'utilisateur" 
+            },
+            "niveau_precision_initial": {
+              "type": "STRING",
+              "enum": ["PRÉCIS", "GÉNÉRAL", "VAGUE"],
+              "description": "Évaluation de la précision du problème initial"
+            },
+            "definition_probleme_qqoqcp": {
               "type": "OBJECT",
               "properties": {
-                "qui": { "type": "STRING" },
-                "quoi": { "type": "STRING" },
-                "ou": { "type": "STRING" },
-                "quand": { "type": "STRING" },
-                "comment": { "type": "STRING" },
-                "combien": { "type": "STRING" },
-                "pourquoi_probleme": { "type": "STRING" }
+                "qui": { 
+                  "type": "STRING",
+                  "description": "Personnes/équipes concernées - validé par l'utilisateur"
+                },
+                "quoi": { 
+                  "type": "STRING", 
+                  "description": "Description factuelle précise du problème"
+                },
+                "ou": { 
+                  "type": "STRING",
+                  "description": "Localisation précise"
+                },
+                "quand": { 
+                  "type": "STRING",
+                  "description": "Moment, fréquence, durée"
+                },
+                "comment": { 
+                  "type": "STRING",
+                  "description": "Modalités d'apparition du problème"
+                },
+                "combien": { 
+                  "type": "STRING",
+                  "description": "Quantification (nombre, %, coût...)"
+                },
+                "pourquoi_probleme": { 
+                  "type": "STRING",
+                  "description": "En quoi c'est problématique"
+                }
               },
-              "required": [
-                "qui",
-                "quoi",
-                "ou",
-                "quand",
-                "comment",
-                "combien",
-                "pourquoi_probleme"
-              ]
+              "required": ["qui", "quoi", "ou", "quand", "comment", "combien", "pourquoi_probleme"]
+            },
+            "impacts_prioritaires": {
+              "type": "ARRAY",
+              "items": {
+                "type": "STRING",
+                "enum": ["QUALITÉ", "COÛT", "DÉLAI", "SÉCURITÉ", "MORAL_MANAGEMENT"]
+              },
+              "description": "Impacts identifiés comme prioritaires par l'utilisateur"
             },
             "impacts_qcdsm": {
               "type": "OBJECT",
               "properties": {
-                "qualite": { "type": "STRING" },
-                "cout": { "type": "STRING" },
-                "delai": { "type": "STRING" },
-                "securite": { "type": "STRING" },
-                "moral_management": { "type": "STRING" }
+                "qualite": { 
+                  "type": "STRING",
+                  "description": "Impact qualité détaillé si prioritaire, sinon 'Non prioritaire'"
+                },
+                "cout": { 
+                  "type": "STRING",
+                  "description": "Impact coût détaillé si prioritaire, sinon 'Non prioritaire'"
+                },
+                "delai": { 
+                  "type": "STRING",
+                  "description": "Impact délai détaillé si prioritaire, sinon 'Non prioritaire'"
+                },
+                "securite": { 
+                  "type": "STRING",
+                  "description": "Impact sécurité détaillé si prioritaire, sinon 'Non prioritaire'"
+                },
+                "moral_management": { 
+                  "type": "STRING",
+                  "description": "Impact moral/management détaillé si prioritaire, sinon 'Non prioritaire'"
+                }
               },
-              "required": [
-                "qualite",
-                "cout",
-                "delai",
-                "securite",
-                "moral_management"
-              ]
+              "required": ["qualite", "cout", "delai", "securite", "moral_management"]
             },
             "reaction_immediate": {
               "type": "ARRAY",
-              "items": { "type": "STRING" }
+              "items": { "type": "STRING" },
+              "description": "Actions immédiates incluant systématiquement la protection client si nécessaire"
             }
           },
-          "required": [
-            "probleme_initial",
-            "definition_probleme_qqoqpc",
-            "impacts_qcdsm",
-            "reaction_immediate"
-          ]
+          "required": ["probleme_initial_brut", "niveau_precision_initial", "definition_probleme_qqoqcp", "impacts_prioritaires", "impacts_qcdsm", "reaction_immediate"]
         },
         "etape2_analyse_causes": {
           "type": "OBJECT",
           "properties": {
-            "hypotheses_causes": {
+            "analyse_5M": {
+              "type": "OBJECT",
+              "properties": {
+                "causes_materiel_machine": {
+                  "type": "ARRAY",
+                  "items": { "type": "STRING" },
+                  "description": "Causes liées au matériel/équipements"
+                },
+                "causes_methode": {
+                  "type": "ARRAY", 
+                  "items": { "type": "STRING" },
+                  "description": "Causes liées aux procédures/méthodes"
+                },
+                "causes_main_oeuvre": {
+                  "type": "ARRAY",
+                  "items": { "type": "STRING" },
+                  "description": "Causes liées aux compétences/formation (avec focus systémique)"
+                },
+                "causes_matiere": {
+                  "type": "ARRAY",
+                  "items": { "type": "STRING" },
+                  "description": "Causes liées aux matières premières/composants"
+                },
+                "causes_milieu": {
+                  "type": "ARRAY",
+                  "items": { "type": "STRING" },
+                  "description": "Causes liées à l'environnement de travail"
+                }
+              },
+              "required": ["causes_materiel_machine", "causes_methode", "causes_main_oeuvre", "causes_matiere", "causes_milieu"]
+            },
+            "hypotheses_causes_generees": {
               "type": "ARRAY",
-              "items": { "type": "STRING" }
+              "items": { 
+                "type": "OBJECT",
+                "properties": {
+                  "hypothese": { "type": "STRING" },
+                  "origine": {
+                    "type": "STRING",
+                    "enum": ["UTILISATEUR", "IA_CRÉATIVE", "PRÉSUPPOSÉE", "ANALYSE_5M"]
+                  },
+                  "categorie_5M": {
+                    "type": "STRING",
+                    "enum": ["MATÉRIEL", "MÉTHODE", "MAIN_OEUVRE", "MATIÈRE", "MILIEU"],
+                    "description": "Catégorie 5M d'origine de l'hypothèse"
+                  }
+                },
+                "required": ["hypothese", "origine"]
+              }
+            },
+            "hypothese_choisie_utilisateur": { 
+              "type": "STRING",
+              "description": "Hypothèse choisie par l'utilisateur pour l'analyse 5 Pourquoi"
             },
             "cinq_pourquoi_analyse": {
               "type": "ARRAY",
@@ -77,21 +191,32 @@
                 "type": "OBJECT",
                 "properties": {
                   "question": { "type": "STRING" },
-                  "reponse": { "type": "STRING" }
+                  "reponse": { "type": "STRING" },
+                  "niveau": { 
+                    "type": "INTEGER",
+                    "minimum": 1,
+                    "maximum": 7
+                  }
                 },
-                "required": [
-                  "question",
-                  "reponse"
-                ]
+                "required": ["question", "reponse", "niveau"]
               }
             },
-            "cause_racine_hypothese": { "type": "STRING" }
+            "cause_racine_hypothese": { 
+              "type": "STRING",
+              "description": "Cause racine identifiée - jamais une simple erreur humaine"
+            },
+            "causes_systemiques_identifiees": {
+              "type": "ARRAY",
+              "items": { "type": "STRING" },
+              "description": "Causes systémiques trouvées derrière les éventuelles erreurs humaines"
+            },
+            "donnees_manquantes_identifiees": {
+              "type": "ARRAY",
+              "items": { "type": "STRING" },
+              "description": "Informations manquantes qui fragilisent l'analyse"
+            }
           },
-          "required": [
-            "hypotheses_causes",
-            "cinq_pourquoi_analyse",
-            "cause_racine_hypothese"
-          ]
+          "required": ["analyse_5M", "hypotheses_causes_generees", "hypothese_choisie_utilisateur", "cinq_pourquoi_analyse", "cause_racine_hypothese"]
         },
         "etape3_resolution_probleme": {
           "type": "OBJECT",
@@ -102,31 +227,138 @@
                 "type": "OBJECT",
                 "properties": {
                   "action": { "type": "STRING" },
+                  "type_action": {
+                    "type": "STRING",
+                    "enum": ["IMMÉDIATE", "CORRECTIVE", "PRÉVENTIVE", "INVESTIGATION"]
+                  },
                   "qui": { "type": "STRING" },
-                  "quand": { "type": "STRING" }
+                  "quand": { "type": "STRING" },
+                  "priorite": {
+                    "type": "STRING", 
+                    "enum": ["HAUTE", "MOYENNE", "BASSE"]
+                  }
                 },
-                "required": [
-                  "action",
-                  "qui",
-                  "quand"
-                ]
+                "required": ["action", "type_action", "qui", "quand", "priorite"]
               }
             },
+            "actions_investigation_donnees": {
+              "type": "ARRAY",
+              "items": { "type": "STRING" },
+              "description": "Actions spécifiques pour collecter les données manquantes"
+            },
             "verification_objectif": { "type": "STRING" },
-            "finalisation_partage_objectif": { "type": "STRING" }
+            "finalisation_partage_objectif": { "type": "STRING" },
+            "recommandations_amelioration_processus": {
+              "type": "ARRAY",
+              "items": { "type": "STRING" }
+            }
           },
-          "required": [
-            "plan_actions",
-            "verification_objectif",
-            "finalisation_partage_objectif"
-          ]
+          "required": ["plan_actions", "verification_objectif", "finalisation_partage_objectif"]
+        },
+        "meta_analyse": {
+          "type": "OBJECT",
+          "properties": {
+            "niveau_confiance_conclusions": {
+              "type": "STRING",
+              "enum": ["ÉLEVÉ", "MOYEN", "FAIBLE"]
+            },
+            "points_forts_analyse": {
+              "type": "ARRAY",
+              "items": { "type": "STRING" }
+            },
+            "axes_amelioration_suggeres": {
+              "type": "ARRAY", 
+              "items": { "type": "STRING" }
+            }
+          },
+          "required": ["niveau_confiance_conclusions"]
         }
       },
       "required": [
-        "titre_probleme",
-        "etape1_detection_reaction",
-        "etape2_analyse_causes",
-        "etape3_resolution_probleme"
+        "titre_probleme", 
+        "niveau_completude_donnees",
+        "etape1_detection_reaction", 
+        "etape2_analyse_causes", 
+        "etape3_resolution_probleme",
+        "meta_analyse"
       ]
+    },
+
+    "parametres_comportement": {
+      "detection_causes_presupposees": {
+        "mots_cles_causes": [
+          "à cause de", "car", "parce que", "faute de", "erreur de", 
+          "l'opérateur", "le technicien", "maintenance", "formation",
+          "s'est trompé", "a mal fait", "a oublié", "négligence"
+        ],
+        "reponse_type": "Je note cette hypothèse pour plus tard, concentrons-nous d'abord sur les faits."
+      },
+      "validation_precision_probleme": {
+        "criteres_precision": ["qui_quantifie", "quoi_mesurable", "ou_specifique", "quand_precise", "combien_chiffre"],
+        "seuil_precision_minimum": 3,
+        "exemples_bonnes_formulations": [
+          "15% des pièces série A présentent des rayures, ligne 2, depuis changement outil lundi",
+          "3 réclamations clients cette semaine sur lot XYZ expédié le 15/01",
+          "Retard de 2h quotidien sur production, équipe de nuit, depuis 3 jours"
+        ]
+      },
+      "gestion_impacts": {
+        "focus_impacts_prioritaires": true,
+        "questions_approfondissement": {
+          "QUALITÉ": "Quel type de défaut ? Combien de produits concernés ? Impact client direct ?",
+          "COÛT": "Montant estimé ? Coûts directs/indirects ? Qui supporte ces coûts ?",
+          "DÉLAI": "Retard en heures/jours ? Impact planning ? Clients affectés ?",
+          "SÉCURITÉ": "Risque personnes/équipements ? Gravité potentielle ? Mesures urgence ?",
+          "MORAL_MANAGEMENT": "Impact équipe ? Relations client/fournisseur ? Image entreprise ?"
+        }
+      },
+      "generation_hypotheses_5M": {
+        "categories": {
+          "Matière": ["qualité matière première", "spécifications", "lot défaillant", "stockage", "approvisionnement"],
+          "Matériel": ["usure équipement", "réglages", "maintenance", "étalonnage", "panne"],
+          "Méthode": ["procédure", "instructions", "gamme opératoire", "contrôles", "communication"],
+          "Main_oeuvre": ["formation", "compétences", "charge travail", "communication", "organisation"],
+          "Milieu": ["environnement", "température", "vibrations", "éclairage", "espace", "sécurité"]
+        }
+      },
+      "anti_erreur_humaine": {
+        "mots_cles_detection": ["erreur humaine", "faute opérateur", "négligence", "inattention", "oubli"],
+        "causes_systemiques_types": [
+          "Formation insuffisante ou inadaptée",
+          "Procédure inexistante, peu claire ou inaccessible", 
+          "Fatigue, stress, surcharge de travail",
+          "Équipement défaillant ou mal conçu",
+          "Environnement perturbateur",
+          "Absence de contrôle/vérification"
+        ]
+      },
+      "gestion_revalidations": {
+        "criteres_modification_substantielle": [
+          "changement_acteurs_principaux", 
+          "modification_quantification_majeure",
+          "nouvelle_localisation_probleme",
+          "changement_temporalite_significative",
+          "ajout_impact_critique_non_identifie"
+        ],
+        "seuil_revalidation": "Modification change > 30% de la compréhension initiale",
+        "messages_irritants_a_eviter": [
+          "récapitulons l'ensemble des éléments QQOQCP",
+          "Pouvez-vous confirmer que cette description complète est toujours correcte",
+          "avant de continuer, et pour être certain de ne rien oublier",
+          "Okay, compris. Quelle est votre première question ?"
+        ],
+        "reponses_proactives_recommandees": [
+          "Pouvez-vous préciser [élément spécifique] ?",
+          "Pour mieux comprendre, pourriez-vous me dire...",
+          "Il me manque une information sur [aspect précis]"
+        ]
+      },
+      "gestion_donnees_manquantes": {
+        "seuil_alerte": 3,
+        "types_donnees_critiques": [
+          "quantification_precise", "chronologie_events", "contexte_environnemental",
+          "historique_similaire", "conditions_specifiques"
+        ]
+      }
     }
   }

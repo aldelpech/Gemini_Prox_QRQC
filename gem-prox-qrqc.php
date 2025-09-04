@@ -3,7 +3,7 @@
  * Plugin Name: Gemini QRQC Problem Solver
  * Plugin URI:  https://parcours-performance.com/
  * Description: Une application interactive pour la résolution de problèmes QRQC, intégrant l'IA Gemini.
- * Version:     1.2.2
+ * Version:     1.2.3
  * Author:      Anne-Laure D
  * Author URI:  https://parcours-performance.com/
  * License:     GPL2
