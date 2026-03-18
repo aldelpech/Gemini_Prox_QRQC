@@ -1,5 +1,12 @@
 # Changelog - Gemini QRQC Problem Solver
 
+## Version 1.3
+**18/03/2026 - Changement de version du modèle d'IA (était gemini-2.0-flash-exp devient gemini-1.5-flash en V1 **
+
+### 🔧 **Système de maintenance automatique**
+- **Détection intelligente des causes présupposées** : éviter de prendre les caus
+
+
 ## Version 1.2.3
 **02/09/2025 - Amélioration des instructions à Gemini : un véritable assistant !**
 
