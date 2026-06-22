@@ -43,7 +43,7 @@
         "etape1_detection_reaction": {
           "type": "OBJECT",
           "properties": {
-            "probleme_initial_brut": { 
+            "probleme_initial": { 
               "type": "STRING",
               "description": "Problème tel qu'exprimé initialement par l'utilisateur" 
             },
@@ -126,7 +126,7 @@
               "description": "Actions immédiates incluant systématiquement la protection client si nécessaire"
             }
           },
-          "required": ["probleme_initial_brut", "niveau_precision_initial", "definition_probleme_qqoqcp", "impacts_prioritaires", "impacts_qcdsm", "reaction_immediate"]
+          "required": ["probleme_initial", "niveau_precision_initial", "definition_probleme_qqoqcp", "impacts_prioritaires", "impacts_qcdsm", "reaction_immediate"]
         },
         "etape2_analyse_causes": {
           "type": "OBJECT",
