@@ -1,6 +1,9 @@
 # Changelog - Gemini QRQC Problem Solver
 
 
+## Version 1.3-2
+**22/06/2026 - changements mineurs des deux fichiers json pour éliminer quelques incohérences
+
 ## Version 1.3-1
 **18/03/2026 - Changement de version du modèle d'IA (était gemini-1.5-flash en V1 devient gemini-2.5-flash en v1beta **
 
